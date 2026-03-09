@@ -7,6 +7,7 @@ os dados brutos em formato JSON para as etapas seguintes.
 import requests
 from utils.logger import get_logger
 
+# Logger do módulo: registra o que aconteceu durante a extração.
 logger = get_logger(__name__)
 
 def extract_products():

@@ -1,18 +1,54 @@
-
 services:
 
   postgres:
+    # Imagem oficial do PostgreSQL.
     image: postgres:15
+    # Nome fixo do container para facilitar comandos de debug.
     container_name: sales_dw
     environment:
+      # Credenciais e banco inicial criados no primeiro boot.
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: 123456
       POSTGRES_DB: sales_dw
     ports:
+      # Porta do host -> porta interna do container.
       - "5433:5432"
+    volumes:
+      # Volume nomeado para manter os dados entre reinicios/recreacoes do container.
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
+      # Verifica se o banco já aceita conexões.
       test: ["CMD-SHELL", "pg_isready -U postgres -d sales_dw"]
       interval: 5s
       timeout: 5s
       retries: 10
       start_period: 5s
+
+  airflow:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.airflow
+    container_name: airflow
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      AIRFLOW__CORE__EXECUTOR: SequentialExecutor
+      AIRFLOW__DATABASE__SQL_ALCHEMY_CONN: sqlite:////opt/airflow/airflow.db
+      AIRFLOW__CORE__LOAD_EXAMPLES: "false"
+      AIRFLOW__CORE__FERNET_KEY: ""
+      AIRFLOW__WEBSERVER__EXPOSE_CONFIG: "true"
+      DATABASE_URL: postgresql+psycopg2://postgres:123456@postgres:5432/sales_dw
+      PYTHONPATH: /opt/airflow/project/src
+    volumes:
+      - ../airflow/dags:/opt/airflow/dags
+      - ../src:/opt/airflow/project/src
+      - ../.env:/opt/airflow/project/.env
+      - airflow_home:/opt/airflow
+    ports:
+      - "8080:8080"
+    command: standalone
+
+volumes:
+  airflow_home:
+  postgres_data:
